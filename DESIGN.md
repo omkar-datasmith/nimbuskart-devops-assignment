@@ -1,26 +1,31 @@
 # DESIGN.md — Cost Janitor: Hardening, Scale & Productionisation
 
-## Multi-cloud reality
+## 🌐 Multi-cloud reality
 
-To add GCP without rewriting the core, the Janitor would adopt a provider abstraction pattern:
+To add GCP without rewriting the core, the Janitor uses a **provider abstraction pattern**.
+
+---
+
+## 🏗️ Architecture
+
 janitor/
 ├── core/
-│   ├── base_scanner.py      # Abstract base class (scan contract)
-│   ├── report.py            # Schema-agnostic report generator
-│   └── constants.py         # Shared pricing + tagging rules
+│ ├── base_scanner.py # Abstract base class (scan contract)
+│ ├── report.py # Schema-agnostic report generator
+│ └── constants.py # Shared pricing + tagging rules
 │
 ├── providers/
-│   ├── aws/
-│   │   ├── ebs_scanner.py   # AWS EBS orphan detection
-│   │   ├── ec2_scanner.py   # AWS EC2 stopped/idle instances
-│   │   └── eip_scanner.py   # AWS unused Elastic IPs
-│   │
-│   ├── gcp/
-│   │   ├── disk_scanner.py  # GCP persistent disk orphans
-│   │   ├── vm_scanner.py    # GCP stopped Compute Engine VMs
-│   │   └── ip_scanner.py    # GCP unused external IPs
+│ ├── aws/
+│ │ ├── ebs_scanner.py # AWS EBS orphan detection
+│ │ ├── ec2_scanner.py # AWS EC2 stopped/idle instances
+│ │ └── eip_scanner.py # AWS unused Elastic IPs
+│ │
+│ ├── gcp/
+│ │ ├── disk_scanner.py # GCP persistent disk orphans
+│ │ ├── vm_scanner.py # GCP stopped Compute Engine VMs
+│ │ └── ip_scanner.py # GCP unused external IPs
 │
-└── janitor.py               # CLI entrypoint (provider loader + merge engine)
+└── janitor.py # CLI entrypoint (provider loader + merge engine)
 Each provider implements the same `scan() → List[Finding]` interface.
 Adding Azure means adding `providers/azure/` with no changes to core or CLI.
 
