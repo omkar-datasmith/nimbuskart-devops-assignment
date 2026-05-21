@@ -1,0 +1,49 @@
+{
+  "scan_timestamp": "2026-05-21T09:00:36Z",
+  "account_id": "000000000000",
+  "region": "us-east-1",
+  "summary": {
+    "total_orphans": 3,
+    "estimated_monthly_waste_usd": 1.6
+  },
+  "findings": [
+    {
+      "resource_id": "vol-05329be1",
+      "resource_type": "ebs_volume",
+      "reason": "unattached \u2014 volume in 'available' state with no EC2 attachment",
+      "age_days": 0,
+      "estimated_monthly_cost_usd": 1.6,
+      "tags": {
+        "Protected": "false",
+        "Purpose": "intentional-orphan-for-janitor-testing",
+        "Environment": "staging",
+        "Name": "nimbuskart-staging-orphan-vol",
+        "ManagedBy": "terraform",
+        "Project": "nimbuskart",
+        "Owner": "platform-team"
+      },
+      "suggested_action": "delete",
+      "safe_to_auto_delete": false
+    },
+    {
+      "resource_id": "vol-6f646186",
+      "resource_type": "ebs_volume",
+      "reason": "missing required tags: Project, Environment, Owner",
+      "age_days": 0,
+      "estimated_monthly_cost_usd": 0.0,
+      "tags": {},
+      "suggested_action": "tag",
+      "safe_to_auto_delete": false
+    },
+    {
+      "resource_id": "vol-e5395487",
+      "resource_type": "ebs_volume",
+      "reason": "missing required tags: Project, Environment, Owner",
+      "age_days": 0,
+      "estimated_monthly_cost_usd": 0.0,
+      "tags": {},
+      "suggested_action": "tag",
+      "safe_to_auto_delete": false
+    }
+  ]
+}
