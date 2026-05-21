@@ -17,7 +17,7 @@
 
 ## Walkthrough video
 
-Link: (add Loom/YouTube link after recording)
+Link: https://drive.google.com/file/d/1eXNttSTwlQTYsydxhBIivXtfG0NC1ZsT/view?usp=sharing
 Length: max 5 minutes
 
 ## Sample report
