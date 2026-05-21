@@ -1,10 +1,19 @@
+# =============================================================================
+# Network Module — Outputs
+# These are consumed by the root module to wire EC2 and other resources.
+# =============================================================================
+
 output "vpc_id" {
-  value = aws_vpc.main.id
+  description = "ID of the created VPC"
+  value       = aws_vpc.main.id
 }
 
 output "public_subnet_ids" {
-  value = [
-    aws_subnet.public_1.id,
-    aws_subnet.public_2.id
-  ]
+  description = "List of public subnet IDs"
+  value       = aws_subnet.public[*].id
+}
+
+output "web_security_group_id" {
+  description = "ID of the web tier security group"
+  value       = aws_security_group.web.id
 }

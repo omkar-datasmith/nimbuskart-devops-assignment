@@ -1,0 +1,172 @@
+name: Cost Janitor
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  cost-janitor:
+    runs-on: ubuntu-latest
+
+    services:
+      localstack:
+        image: localstack/localstack:3.8.1
+        ports:
+          - 4566:4566
+        env:
+          LOCALSTACK_HOST: localhost
+        options: >-
+          --health-cmd "curl -f http://localhost:4566/_localstack/health || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      # -----------------------------------------------------------------------
+      # 1. Checkout code
+      # -----------------------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # -----------------------------------------------------------------------
+      # 2. Setup Python
+      # -----------------------------------------------------------------------
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # -----------------------------------------------------------------------
+      # 3. Install Python dependencies
+      # -----------------------------------------------------------------------
+      - name: Install janitor dependencies
+        run: |
+          pip install -r janitor/requirements.txt
+          pip install awscli-local terraform-local
+
+      # -----------------------------------------------------------------------
+      # 4. Install Terraform
+      # -----------------------------------------------------------------------
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.7.0"
+
+      # -----------------------------------------------------------------------
+      # 5. Wait for LocalStack to be ready
+      # -----------------------------------------------------------------------
+      - name: Wait for LocalStack
+        run: |
+          echo "Waiting for LocalStack..."
+          for i in $(seq 1 20); do
+            if curl -sf http://localhost:4566/_localstack/health | grep -q '"ec2"'; then
+              echo "LocalStack is ready."
+              break
+            fi
+            echo "  attempt $i — not ready yet..."
+            sleep 5
+          done
+          curl -sf http://localhost:4566/_localstack/health | python3 -m json.tool
+
+      # -----------------------------------------------------------------------
+      # 6. Apply Terraform against LocalStack
+      # -----------------------------------------------------------------------
+      - name: Terraform Init and Apply
+        working-directory: terraform
+        env:
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_DEFAULT_REGION: us-east-1
+        run: |
+          tflocal init -input=false
+          tflocal apply -auto-approve -input=false
+
+      # -----------------------------------------------------------------------
+      # 7. Run Cost Janitor in dry-run mode
+      # -----------------------------------------------------------------------
+      - name: Run Cost Janitor (dry-run)
+        working-directory: janitor
+        env:
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_DEFAULT_REGION: us-east-1
+        run: |
+          python janitor.py \
+            --endpoint-url http://localhost:4566 \
+            --region us-east-1 \
+            --output-dir . \
+            --stopped-days 14
+        continue-on-error: true
+
+      # -----------------------------------------------------------------------
+      # 8. Upload report artifacts
+      # -----------------------------------------------------------------------
+      - name: Upload report artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cost-janitor-report
+          path: |
+            janitor/report.json
+            janitor/summary.md
+          retention-days: 30
+
+      # -----------------------------------------------------------------------
+      # 9. Post PR comment if orphans found
+      # -----------------------------------------------------------------------
+      - name: Post PR comment
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const summaryPath = 'janitor/summary.md';
+
+            if (!fs.existsSync(summaryPath)) {
+              console.log('No summary file found — skipping comment.');
+              return;
+            }
+
+            const summary = fs.readFileSync(summaryPath, 'utf8');
+            const reportPath = 'janitor/report.json';
+            const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+            const orphans = report.summary.total_orphans;
+
+            if (orphans === 0) {
+              console.log('No orphans found — skipping comment.');
+              return;
+            }
+
+            const body = [
+              '## 🧹 Cost Janitor Report',
+              '',
+              `> **${orphans} orphaned resource(s) found** — review before merging.`,
+              '',
+              summary,
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body,
+            });
+
+      # -----------------------------------------------------------------------
+      # 10. Fail the job if orphans were found
+      # -----------------------------------------------------------------------
+      - name: Fail if orphans found
+        working-directory: janitor
+        run: |
+          python3 -c "
+          import json, sys
+          with open('report.json') as f:
+              r = json.load(f)
+          orphans = r['summary']['total_orphans']
+          cost = r['summary']['estimated_monthly_waste_usd']
+          print(f'Orphans found: {orphans}')
+          print(f'Estimated waste: \${cost}/month')
+          sys.exit(1 if orphans > 0 else 0)
+          "

@@ -1,19 +1,38 @@
+# =============================================================================
+# Network Module — Input Variables
+# =============================================================================
+
 variable "vpc_cidr" {
-  type = string
+  description = "CIDR block for the VPC"
+  type        = string
 }
 
-variable "public_subnet_1_cidr" {
-  type = string
+variable "public_subnet_cidrs" {
+  description = "List of CIDR blocks for public subnets"
+  type        = list(string)
 }
 
-variable "public_subnet_2_cidr" {
-  type = string
+variable "availability_zones" {
+  description = "List of AZs for subnet placement"
+  type        = list(string)
+}
+
+variable "ssh_allowed_cidr" {
+  description = "CIDR allowed inbound on port 22"
+  type        = string
+}
+
+variable "project" {
+  description = "Project tag value"
+  type        = string
 }
 
 variable "environment" {
-  type = string
+  description = "Environment tag value"
+  type        = string
 }
 
-variable "common_tags" {
-  type = map(string)
+variable "owner" {
+  description = "Owner tag value"
+  type        = string
 }
